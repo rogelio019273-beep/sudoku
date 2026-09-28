@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Solucionador de Sudoku</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1565c0, #42a5f5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .contenedor {
+            background: white;
+            width: 95%;
+            max-width: 600px;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        h1 {
+            text-align: center;
+            color: #1565c0;
+            margin-top: 0;
+        }
+
+        .descripcion {
+            text-align: center;
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        /* TABLERO */
+
+        #sudoku {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 1;
+            margin: auto;
+            border: 3px solid #222;
+        }
+
+        .celda {
+            width: 100%;
+            height: 100%;
+            min-width: 0;
+
+            border: 1px solid #aaa;
+
+            text-align: center;
+            font-size: clamp(18px, 5vw, 30px);
+            font-weight: bold;
+
+            color: #1565c0;
+            background: white;
+
+            outline: none;
+        }
+
+        .celda:focus {
+            background: #e3f2fd;
+        }
+
+        /* Líneas gruesas de los bloques 3x3 */
+
+        .celda:nth-child(3n) {
+            border-right: 3px solid #222;
+        }
+
+        .celda:nth-child(9n) {
+            border-right: none;
+        }
+
+        /* Líneas horizontales */
+
+        .celda:nth-child(n+19):nth-child(-n+27),
+        .celda:nth-child(n+46):nth-child(-n+54) {
+            border-bottom: 3px solid #222;
+        }
+
+        /* BOTONES */
+
+        .botones {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 25px;
+        }
+
+        button {
+            border: none;
+            padding: 14px;
+            border-radius: 10px;
+
+            font-size: 16px;
+            font-weight: bold;
+
+            cursor: pointer;
+            color: white;
+
+            transition: 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            filter: brightness(1.1);
+        }
+
+        .resolver {
+            background: #1565c0;
+        }
+
+        .limpiar {
+            background: #e53935;
+        }
+
+        .ejemplo {
+            background: #43a047;
+        }
+
+        .validar {
+            background: #fb8c00;
+        }
+
+        #mensaje {
+            text-align: center;
+            min-height: 25px;
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        .correcto {
+            color: #2e7d32;
+        }
+
+        .error {
+            color: #c62828;
+        }
+
+        @media (max-width: 500px) {
+
+            .contenedor {
+                padding: 18px;
+            }
+
+            .botones {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+    <h1>Sudoku 9×9</h1>
+
+    <p class="descripcion">
+        Introduce los números del Sudoku y presiona
+        <strong>Resolver</strong>.
+    </p>
+
+    <div id="sudoku"></div>
+
+    <div class="botones">
+
+        <button class="resolver" onclick="resolverSudoku()">
+            Resolver Sudoku
+        </button>
+
+        <button class="validar" onclick="validarSudoku()">
+            Validar
+        </button>
+
+        <button class="ejemplo" onclick="cargarEjemplo()">
+            Cargar ejemplo
+        </button>
+
+        <button class="limpiar" onclick="limpiar()">
+            Limpiar
+        </button>
+
+    </div>
+
+    <div id="mensaje"></div>
+
+</div>
+
+
+<script>
+
+    /* ==========================================
+       CREAR TABLERO
+       ========================================== */
+
+    const sudoku = document.getElementById("sudoku");
+    const mensaje = document.getElementById("mensaje");
+
+    let celdas = [];
+
+    function crearTablero() {
+
+        sudoku.innerHTML = "";
+        celdas = [];
+
+        for (let fila = 0; fila < 9; fila++) {
+
+            celdas[fila] = [];
+
+            for (let columna = 0; columna < 9; columna++) {
+
+                const input = document.createElement("input");
+
+                input.className = "celda";
+
+                input.type = "text";
+                input.maxLength = 1;
+                input.inputMode = "numeric";
+
+                /*
+                    Solo permitir números del 1 al 9
+                */
+
+                input.addEventListener("input", function () {
+
+                    this.value =
+                        this.value.replace(/[^1-9]/g, "");
+
+                });
+
+                sudoku.appendChild(input);
+
+                celdas[fila][columna] = input;
+            }
+        }
+    }
+
+
+    /* ==========================================
+       OBTENER TABLERO
+       ========================================== */
+
+    function obtenerTablero() {
+
+        let tablero = [];
+
+        for (let fila = 0; fila < 9; fila++) {
+
+            tablero[fila] = [];
+
+            for (let columna = 0; columna < 9; columna++) {
+
+                let valor =
+                    celdas[fila][columna].value;
+
+                tablero[fila][columna] =
+                    valor === "" ? 0 : Number(valor);
+            }
+        }
+
+        return tablero;
+    }
+
+
+    /* ==========================================
+       MOSTRAR TABLERO
+       ========================================== */
+
+    function mostrarTablero(tablero) {
+
+        for (let fila = 0; fila < 9; fila++) {
+
+            for (let columna = 0; columna < 9; columna++) {
+
+                if (tablero[fila][columna] !== 0) {
+
+                    celdas[fila][columna].value =
+                        tablero[fila][columna];
+                }
+            }
+        }
+    }
+
+
+    /* ==========================================
+       COMPROBAR SI SE PUEDE COLOCAR UN NÚMERO
+       ========================================== */
+
+    function esValido(tablero, fila, columna, numero) {
+
+        /*
+            Revisar fila
+        */
+
+        for (let c = 0; c < 9; c++) {
+
+            if (tablero[fila][c] === numero) {
+                return false;
+            }
+        }
+
+
+        /*
+            Revisar columna
+        */
+
+        for (let f = 0; f < 9; f++) {
+
+            if (tablero[f][columna] === numero) {
+                return false;
+            }
+        }
+
+
+        /*
+            Revisar bloque 3x3
+        */
+
+        const inicioFila =
+            Math.floor(fila / 3) * 3;
+
+        const inicioColumna =
+            Math.floor(columna / 3) * 3;
+
+
+        for (
+            let f = inicioFila;
+            f < inicioFila + 3;
+            f++
+        ) {
+
+            for (
+                let c = inicioColumna;
+                c < inicioColumna + 3;
+                c++
+            ) {
+
+                if (tablero[f][c] === numero) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+
+    /* ==========================================
+       ALGORITMO PARA RESOLVER
+       ========================================== */
+
+    function resolver(tablero) {
+
+        /*
+            Buscar una celda vacía
+        */
+
+        for (let fila = 0; fila < 9; fila++) {
+
+            for (let columna = 0; columna < 9; columna++) {
+
+                if (tablero[fila][columna] === 0) {
+
+                    /*
+                        Intentar números 1 - 9
+                    */
+
+                    for (let numero = 1; numero <= 9; numero++) {
+
+                        if (
+                            esValido(
+                                tablero,
+                                fila,
+                                columna,
+                                numero
+                            )
+                        ) {
+
+                            tablero[fila][columna] =
+                                numero;
+
+                            /*
+                                Continuar buscando
+                            */
+
+                            if (resolver(tablero)) {
+                                return true;
+                            }
+
+                            /*
+                                Si no funciona,
+                                regresar a cero.
+                            */
+
+                            tablero[fila][columna] = 0;
+                        }
+                    }
+
+                    return false;
+                }
+            }
+        }
+
+        /*
+            No quedan espacios vacíos.
+            Sudoku resuelto.
+        */
+
+        return true;
+    }
+
+
+    /* ==========================================
+       RESOLVER SUDOKU
+       ========================================== */
+
+    function resolverSudoku() {
+
+        let tablero = obtenerTablero();
+
+        /*
+            Guardar los números originales
+        */
+
+        let original =
+            tablero.map(fila => [...fila]);
+
+
+        /*
+            Comprobar que el Sudoku inicial
+            no tenga números repetidos.
+        */
+
+        if (!tableroInicialValido(tablero)) {
+
+            mostrarMensaje(
+                "El Sudoku contiene números repetidos.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        /*
+            Intentar resolver
+        */
+
+        if (resolver(tablero)) {
+
+            mostrarTablero(tablero);
+
+
+            /*
+                Números originales en azul.
+                Números calculados en verde.
+            */
+
+            for (let fila = 0; fila < 9; fila++) {
+
+                for (let columna = 0; columna < 9; columna++) {
+
+                    if (original[fila][columna] === 0) {
+
+                        celdas[fila][columna]
+                            .style.color = "#2e7d32";
+
+                    } else {
+
+                        celdas[fila][columna]
+                            .style.color = "#1565c0";
+                    }
+                }
+            }
+
+
+            mostrarMensaje(
+                "¡Sudoku resuelto!",
+                "correcto"
+            );
+
+        } else {
+
+            mostrarMensaje(
+                "Este Sudoku no tiene solución.",
+                "error"
+            );
+        }
+    }
+
+
+    /* ==========================================
+       VALIDAR SUDOKU INICIAL
+       ========================================== */
+
+    function tableroInicialValido(tablero) {
+
+        for (let fila = 0; fila < 9; fila++) {
+
+            for (let columna = 0; columna < 9; columna++) {
+
+                let numero = tablero[fila][columna];
+
+                if (numero !== 0) {
+
+                    /*
+                        Quitar temporalmente
+                        el número para comprobarlo.
+                    */
+
+                    tablero[fila][columna] = 0;
+
+                    let valido =
+                        esValido(
+                            tablero,
+                            fila,
+                            columna,
+                            numero
+                        );
+
+                    tablero[fila][columna] = numero;
+
+                    if (!valido) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+
+    /* ==========================================
+       BOTÓN VALIDAR
+       ========================================== */
+
+    function validarSudoku() {
+
+        let tablero = obtenerTablero();
+
+        if (tableroInicialValido(tablero)) {
+
+            mostrarMensaje(
+                "El Sudoku es válido.",
+                "correcto"
+            );
+
+        } else {
+
+            mostrarMensaje(
+                "Hay números repetidos.",
+                "error"
+            );
+        }
+    }
+
+
+    /* ==========================================
+       CARGAR EJEMPLO
+       ========================================== */
+
+    function cargarEjemplo() {
+
+        const ejemplo = [
+
+            [5, 3, 0, 0, 7, 0, 0, 0, 0],
+
+            [6, 0, 0, 1, 9, 5, 0, 0, 0],
+
+            [0, 9, 8, 0, 0, 0, 0, 6, 0],
+
+            [8, 0, 0, 0, 6, 0, 0, 0, 3],
+
+            [4, 0, 0, 8, 0, 3, 0, 0, 1],
+
+            [7, 0, 0, 0, 2, 0, 0, 0, 6],
+
+            [0, 6, 0, 0, 0, 0, 2, 8, 0],
+
+            [0, 0, 0, 4, 1, 9, 0, 0, 0],
+
+            [0, 0, 0, 0, 8, 0, 0, 7, 9]
+
+        ];
+
+        mostrarTablero(ejemplo);
+
+        mostrarMensaje(
+            "Ejemplo cargado.",
+            "correcto"
+        );
+    }
+
+
+    /* ==========================================
+       LIMPIAR
+       ========================================== */
+
+    function limpiar() {
+
+        for (let fila = 0; fila < 9; fila++) {
+
+            for (let columna = 0; columna < 9; columna++) {
+
+                celdas[fila][columna].value = "";
+
+                celdas[fila][columna]
+                    .style.color = "#1565c0";
+            }
+        }
+
+        mostrarMensaje("", "");
+    }
+
+
+    /* ==========================================
+       INICIAR
+       ========================================== */
+
+    crearTablero();
+
+</script>
+
+</body>
+</html>
